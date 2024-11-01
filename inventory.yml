@@ -1,0 +1,8 @@
+all:
+  hosts:
+    web-0.ru-central1.internal:
+      ansible_user: user
+      ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+    web-1.ru-central1.internal:
+      ansible_user: user
+      ansible_ssh_private_key_file: ~/.ssh/id_ed25519

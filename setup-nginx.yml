@@ -1,0 +1,22 @@
+---
+- name: Setup NGINX on web servers
+  hosts: all
+  become: true
+  tasks:
+    - name: Install NGINX
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Copy static website files
+      copy:
+        src: static/
+        dest: /var/www/html/
+        mode: '0755'
+
+    - name: Ensure NGINX is running
+      service:
+        name: nginx
+        state: started
+        enabled: true
