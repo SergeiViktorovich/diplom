@@ -64,7 +64,7 @@ resource "yandex_compute_instance" "web_server_1" {
   }
 
   metadata = {
-    ssh-keys = "user:${file("/home/user/.ssh/id_ed25519.pub")}"
+    ssh-keys = "user:${file("/home/ubuntu/.ssh/id_ed25519.pub")}"
   }
 }
 
@@ -98,7 +98,7 @@ resource "yandex_compute_instance" "web_server_2" {
   }
 
   metadata = {
-    ssh-keys = "user:${file("/home/user/.ssh/id_ed25519.pub")}"
+    ssh-keys = "user:${file("/home/ubuntu/.ssh/id_ed25519.pub")}"
   }
 }
 
