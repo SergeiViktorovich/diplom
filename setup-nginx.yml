@@ -1,8 +1,12 @@
 ---
 - name: Setup NGINX on web servers
-  hosts: all
+  hosts: web_servers
   become: true
   tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
     - name: Install NGINX
       apt:
         name: nginx
@@ -15,7 +19,7 @@
         dest: /var/www/html/
         mode: '0755'
 
-    - name: Ensure NGINX is running
+    - name: Start and enable Nginx service
       service:
         name: nginx
         state: started
