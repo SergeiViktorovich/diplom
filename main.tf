@@ -18,20 +18,61 @@ resource "yandex_vpc_network" "network" {
   name = "web-network"
 }
 
-# Создаем подсеть для зоны ru-central1-a
+# Публичная подсеть для бастион-хоста
+resource "yandex_vpc_subnet" "public_subnet" {
+  name           = "public-subnet"
+  zone           = "ru-central1-a"  # Зона для бастион-хоста
+  network_id     = yandex_vpc_network.network.id
+  v4_cidr_blocks = ["10.0.1.0/24"]
+}
+
+# Приватная подсеть для зоны ru-central1-a
 resource "yandex_vpc_subnet" "subnet_a" {
   name           = "web-subnet-a"
   zone           = "ru-central1-a"
   network_id     = yandex_vpc_network.network.id
-  v4_cidr_blocks = ["10.0.0.0/24"]
+  v4_cidr_blocks = ["10.0.2.0/24"]
 }
 
-# Создаем подсеть для зоны ru-central1-b
+# Приватная подсеть для зоны ru-central1-b
 resource "yandex_vpc_subnet" "subnet_b" {
   name           = "web-subnet-b"
   zone           = "ru-central1-b"
   network_id     = yandex_vpc_network.network.id
-  v4_cidr_blocks = ["10.0.1.0/24"]
+  v4_cidr_blocks = ["10.0.3.0/24"]
+}
+
+resource "yandex_compute_instance" "bastion_host" {
+  name     = "bastion-host"
+  hostname = "bastion-host"
+  zone     = "ru-central1-a"
+
+  resources {
+    cores         = 2
+    core_fraction = 20
+    memory        = 2
+  }
+
+  boot_disk {
+    initialize_params {
+      image_id = "fd8p4jt9v2pfq4ol9jqh"  # Ubuntu 22.04
+      size     = 10
+      type     = "network-hdd"
+    }
+  }
+
+  scheduling_policy {
+    preemptible = true  # Прерываемая ВМ
+  }
+
+  network_interface {
+    subnet_id = yandex_vpc_subnet.public_subnet.id
+    nat       = true  # Нужен для подключения к интернету
+  }
+
+  metadata = {
+    ssh-keys = "user:${file("/home/user/.ssh/id_ed25519.pub")}"
+  }
 }
 
 # Виртуальная машина в зоне ru-central1-a
@@ -60,11 +101,11 @@ resource "yandex_compute_instance" "web_server_1" {
 
   network_interface {
     subnet_id = yandex_vpc_subnet.subnet_a.id
-    nat       = true
+    nat       = false
   }
 
   metadata = {
-    ssh-keys = "user:${file("/home/ubuntu/.ssh/id_ed25519.pub")}"
+    ssh-keys = "user:${file("/home/user/.ssh/id_ed25519.pub")}"
   }
 }
 
@@ -94,11 +135,11 @@ resource "yandex_compute_instance" "web_server_2" {
 
   network_interface {
     subnet_id = yandex_vpc_subnet.subnet_b.id
-    nat       = true
+    nat       = false
   }
 
   metadata = {
-    ssh-keys = "user:${file("/home/ubuntu/.ssh/id_ed25519.pub")}"
+    ssh-keys = "user:${file("/home/user/.ssh/id_ed25519.pub")}"
   }
 }
 
@@ -195,7 +236,6 @@ resource "yandex_alb_virtual_host" "my-virtual-host" {
   }
 
   route_options {
-    # Вы можете указать идентификатор профиля безопасности, если это необходимо
     # security_profile_id   = "<идентификатор_профиля_безопасности>"
   }
 }
