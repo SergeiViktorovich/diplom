@@ -7,12 +7,6 @@ terraform {
   }
 }
 
-provider "yandex" {
-  token     = var.token
-  cloud_id  = var.cloud_id
-  folder_id = var.folder_id
-}
-
 # Создаем сеть
 resource "yandex_vpc_network" "network" {
   name = "web-network"
