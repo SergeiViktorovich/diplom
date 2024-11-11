@@ -1,0 +1,14 @@
+# Глобальные настройки для всех хостов
+Host *
+  User ubuntu
+  IdentityFile ~/.ssh/id_ed25519
+  StrictHostKeyChecking no
+
+# Конфигурация для подключения к бастион-хосту
+Host bastion
+  HostName 158.160.40.206
+
+# Настройки для доступа к web1 и web2 через бастион
+Host web-server-1 web-server-2
+  HostName %h.ru-central1.internal
+  ProxyJump bastion
