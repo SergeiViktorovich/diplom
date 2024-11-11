@@ -1,5 +1,5 @@
 [bastion_server]
-bastion ansible_host=89.169.142.252
+bastion ansible_host=89.169.155.42
 
 [web_servers]
 web1 ansible_host=web-server-1.ru-central1.internal
@@ -7,4 +7,4 @@ web2 ansible_host=web-server-1.ru-central1.internal
 
 [all:vars]
 ansible_user=ubuntu
-ansible_ssh_common_args='-o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 ubuntu@89.169.142.252"'
+ansible_ssh_common_args='-o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 ubuntu@89.169.155.42"'
