@@ -1,0 +1,50 @@
+---
+- name: Установка NGINX в Docker на веб-серверах
+  hosts: web_servers
+  become: true
+  tasks:
+    # Обновление кеша apt
+    - name: Убедиться, что Docker установлен
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    # Запуск и включение службы Docker
+    - name: Запустить службу Docker
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    # Загрузка образа Nginx из Docker Hub
+    - name: Загрузить образ Nginx
+      docker_image:
+        name: nginx
+        source: pull
+
+    # Создание локальной директории для статических файлов
+    - name: Создать директорию для статических файлов
+      file:
+        path: /var/www/html/
+        state: directory
+        mode: '0755'
+
+    # Копирование статических файлов сайта на сервер
+    - name: Копировать файлы статического сайта на сервер
+      copy:
+        src: static/           # Исходная директория с файлами на локальной машине
+        dest: /var/www/html/    # Целевая директория на сервере
+        mode: '0755'
+
+    # Запуск контейнера Nginx с пробросом порта и монтированием статических файлов
+    - name: Запустить контейнер Nginx с монтированием статических файлов
+      docker_container:
+        name: nginx
+        image: nginx
+        state: started
+        ports:
+          - "80:80"                 # Проброс порта 80 с хоста в контейнер
+        volumes:
+          - /var/www/html/:/usr/share/nginx/html:ro  # Монтирование директории со статическими файлами в контейнер
+        restart_policy: always       # Политика перезапуска контейнера

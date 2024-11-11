@@ -7,6 +7,12 @@ terraform {
   }
 }
 
+provider "yandex" {
+#  token     = var.yc_token        # Токен доступа
+#  cloud_id  = var.cloud_id        # Идентификатор облака
+#  folder_id = var.folder_id       # Идентификатор каталога
+}
+
 # Создаем сеть
 resource "yandex_vpc_network" "network" {
   name = "web-network"
@@ -23,7 +29,6 @@ resource "yandex_vpc_subnet" "public_subnet" {
 # Добавляем NAT gateway
 resource "yandex_vpc_gateway" "nat_gateway" {
   name             = "nat-gateway"
-  network_id       = yandex_vpc_network.network.id
   shared_egress_gateway {}
 }
 
