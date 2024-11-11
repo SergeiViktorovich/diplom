@@ -20,12 +20,31 @@ resource "yandex_vpc_subnet" "public_subnet" {
   v4_cidr_blocks = ["10.0.1.0/24"]
 }
 
+# Добавляем NAT gateway
+resource "yandex_vpc_gateway" "nat_gateway" {
+  name             = "nat-gateway"
+  network_id       = yandex_vpc_network.network.id
+  shared_egress_gateway {}
+}
+
+# Таблица маршрутов с NAT gateway
+resource "yandex_vpc_route_table" "nat_route_table" {
+  name       = "nat-route-table"
+  network_id = yandex_vpc_network.network.id
+
+  static_route {
+    destination_prefix = "0.0.0.0/0"
+    gateway_id         = yandex_vpc_gateway.nat_gateway.id
+  }
+}
+
 # Приватная подсеть для зоны ru-central1-a
 resource "yandex_vpc_subnet" "subnet_a" {
   name           = "web-subnet-a"
   zone           = "ru-central1-a"
   network_id     = yandex_vpc_network.network.id
   v4_cidr_blocks = ["10.0.2.0/24"]
+  route_table_id = yandex_vpc_route_table.nat_route_table.id  # Таблица маршрутов для NAT
 }
 
 # Приватная подсеть для зоны ru-central1-b
@@ -34,6 +53,7 @@ resource "yandex_vpc_subnet" "subnet_b" {
   zone           = "ru-central1-b"
   network_id     = yandex_vpc_network.network.id
   v4_cidr_blocks = ["10.0.3.0/24"]
+  route_table_id = yandex_vpc_route_table.nat_route_table.id  # Таблица маршрутов для NAT
 }
 
 resource "yandex_compute_instance" "bastion_host" {
