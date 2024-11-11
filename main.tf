@@ -8,9 +8,9 @@ terraform {
 }
 
 provider "yandex" {
-#  token     = var.yc_token        # Токен доступа
-#  cloud_id  = var.cloud_id        # Идентификатор облака
-#  folder_id = var.folder_id       # Идентификатор каталога
+  token     = var.yc_token        # Токен доступа
+  cloud_id  = var.cloud_id        # Идентификатор облака
+  folder_id = var.folder_id       # Идентификатор каталога
 }
 
 # Создаем сеть
@@ -90,7 +90,7 @@ resource "yandex_compute_instance" "bastion_host" {
   }
 
   metadata = {
-    ssh-keys = "user:${file("/home/user/.ssh/id_ed25519.pub")}"
+    ssh-keys = "user:${file(var.ssh_public_key_path)}"
   }
 }
 
@@ -124,7 +124,7 @@ resource "yandex_compute_instance" "web_server_1" {
   }
 
   metadata = {
-    ssh-keys = "user:${file("/home/user/.ssh/id_ed25519.pub")}"
+    ssh-keys = "user:${file(var.ssh_public_key_path)}"
   }
 }
 
@@ -158,7 +158,7 @@ resource "yandex_compute_instance" "web_server_2" {
   }
 
   metadata = {
-    ssh-keys = "user:${file("/home/user/.ssh/id_ed25519.pub")}"
+    ssh-keys = "user:${file(var.ssh_public_key_path)}"
   }
 }
 
@@ -304,13 +304,16 @@ resource "yandex_alb_load_balancer" "web-balancer" {
 }
 
 output "target_group_id" {
+  description = "ID целевой группы веб-серверов"
   value = yandex_alb_target_group.web-target-groups.id
 }
 
 output "backend_group_id" {
+  description = "ID бекенд группы веб-серверов"
   value = yandex_alb_backend_group.web-backend-group.id
 }
 
 output "load_balancer_id" {
+  description = "ID балансировщика"
   value = yandex_alb_load_balancer.web-balancer.id
 }

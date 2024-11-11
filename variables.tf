@@ -1,11 +1,23 @@
-#variable "token" {}
-#variable "cloud_id" {}
-#variable "folder_id" {}
-# variable "subnet_id" {}
-#variable "instance_count" {
-#  default = 1
-#}
+variable "yc_token" {
+  description = "Токен доступа Yandex Cloud"
+  type        = string
+  #default = ""
+}
 
-# export YC_TOKEN=$(yc iam create-token)
-# export YC_CLOUD_ID=$(yc config get cloud-id)
-# export YC_FOLDER_ID=$(yc config get folder-id)
+variable "cloud_id" {
+  description = "Идентификатор облака"
+  type        = string
+  #default = ""
+}
+
+variable "folder_id" {
+  description = "Идентификатор каталога"
+  type        = string
+  #default = ""
+}
+
+variable "ssh_public_key_path" {
+  description = "Путь к публичному SSH-ключу"
+  type        = string
+  #default     = ""
+}

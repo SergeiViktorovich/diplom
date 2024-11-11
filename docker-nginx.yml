@@ -3,34 +3,6 @@
   hosts: web_servers
   become: true
   tasks:
-    - name: Убедитесь, что процессы apt не запущены
-      shell: |
-        ps aux | grep '[a]pt' | awk '{print $2}' | xargs -r kill -9
-      ignore_errors: true
-
-    - name: Удалить файл блокировки /var/lib/apt/lists/lock, если он существует
-      file:
-        path: /var/lib/apt/lists/lock
-        state: absent
-
-    - name: Удалить файл блокировки /var/cache/apt/archives/lock, если он существует
-      file:
-        path: /var/cache/apt/archives/lock
-        state: absent
-
-    - name: Удалить файл блокировки /var/lib/dpkg/lock-frontend, если он существует
-      file:
-        path: /var/lib/dpkg/lock-frontend
-        state: absent
-
-    - name: Удалить файл блокировки /var/lib/dpkg/lock, если он существует
-      file:
-        path: /var/lib/dpkg/lock
-        state: absent
-
-    - name: Перезагрузка dpkg для восстановления базы данных
-      command: dpkg --configure -a
-
     - name: Update apt cache
       apt:
         update_cache: yes
@@ -44,7 +16,6 @@
       pip:
         name: docker
         state: present
-        container_default_behavior: no_defaults  # Явное значение для параметра
      
     # Обновление кеша apt
     - name: Проверка, что Docker установлен

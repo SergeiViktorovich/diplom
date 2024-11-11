@@ -1,0 +1,4 @@
+yc_token = "t1.9euelZqWjp6Sl5bMnZnPkJGOkc_Nye3rnpWayYrGncaYypeSkpOKlY6Wj5Dl9PdSCDpG-e87Enqf3fT3Ejc3RvnvOxJ6n83n9euelZqOncmWzJWRnI6ensmblInGie_8xeuelZqOncmWzJWRnI6ensmblInGiQ.I0xxNOVi-Ac8MPyfKeuGt9t4qEs4BDODSI6A4d1or3fzm2Y-7P-noMKk9iV1Ura_XUhtiZF4d4-SMXx_ueBwDg"
+cloud_id = "b1gbft5ofoi48rimh354"
+folder_id = "b1g20n2a25ll9euuqqf8"
+ssh_public_key_path = "/home/user/.ssh/id_ed25519.pub"
