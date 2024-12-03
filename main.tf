@@ -18,17 +18,47 @@ resource "yandex_vpc_network" "network" {
   name = "web-network"
 }
 
-# Публичная подсеть для бастион-хоста
-resource "yandex_vpc_subnet" "public_subnet" {
-  name           = "public-subnet"
-  zone           = "ru-central1-a"  # Зона для бастион-хоста
+# Объявляем переменную для подсетей
+variable "subnets" {
+  description = "Параметры подсетей"
+  type = map(object({
+    cidr_block = string
+    zone       = string
+    is_private = bool  # Флаг, указывающий на использование NAT
+  }))
+  default = {
+    "public-subnet" = {
+      cidr_block = "10.0.1.0/24"
+      zone       = "ru-central1-a"
+      is_private = false
+    }
+    "private-subnet-a" = {
+      cidr_block = "10.0.2.0/24"
+      zone       = "ru-central1-a"
+      is_private = true
+    }
+    "private-subnet-b" = {
+      cidr_block = "10.0.3.0/24"
+      zone       = "ru-central1-b"
+      is_private = true
+    }
+  }
+}
+
+# Создаем подсети с использованием for_each
+resource "yandex_vpc_subnet" "subnets" {
+  for_each = var.subnets
+
+  name           = each.key
+  v4_cidr_blocks = [each.value.cidr_block]
+  zone           = each.value.zone
   network_id     = yandex_vpc_network.network.id
-  v4_cidr_blocks = ["10.0.1.0/24"]
+  route_table_id = each.value.is_private ? yandex_vpc_route_table.nat_route_table.id : null
 }
 
 # Добавляем NAT gateway
 resource "yandex_vpc_gateway" "nat_gateway" {
-  name             = "nat-gateway"
+  name = "nat-gateway"
   shared_egress_gateway {}
 }
 
@@ -43,22 +73,38 @@ resource "yandex_vpc_route_table" "nat_route_table" {
   }
 }
 
-# Приватная подсеть для зоны ru-central1-a
-resource "yandex_vpc_subnet" "subnet_a" {
-  name           = "web-subnet-a"
-  zone           = "ru-central1-a"
-  network_id     = yandex_vpc_network.network.id
-  v4_cidr_blocks = ["10.0.2.0/24"]
-  route_table_id = yandex_vpc_route_table.nat_route_table.id  # Таблица маршрутов для NAT
-}
+# Добавим виртуальную машину для Zabbix Server
+resource "yandex_compute_instance" "zabbix_server" {
+  name     = "zabbix-server"
+  hostname = "zabbix-server"
+  zone     = "ru-central1-a"
 
-# Приватная подсеть для зоны ru-central1-b
-resource "yandex_vpc_subnet" "subnet_b" {
-  name           = "web-subnet-b"
-  zone           = "ru-central1-b"
-  network_id     = yandex_vpc_network.network.id
-  v4_cidr_blocks = ["10.0.3.0/24"]
-  route_table_id = yandex_vpc_route_table.nat_route_table.id  # Таблица маршрутов для NAT
+  resources {
+    cores         = 2
+    core_fraction = 20
+    memory        = 2
+  }
+
+  boot_disk {
+    initialize_params {
+      image_id = "fd8p4jt9v2pfq4ol9jqh"  # Ubuntu 22.04
+      size     = 10
+      type     = "network-hdd"
+    }
+  }
+
+  scheduling_policy {
+    preemptible = true  # Прерываемая ВМ
+  }
+
+  network_interface {
+    subnet_id = yandex_vpc_subnet.subnets["public-subnet"].id
+    nat       = true  # Нужен для подключения к интернету
+  }
+
+  metadata = {
+    ssh-keys = "user:${file(var.ssh_public_key_path)}"
+  }
 }
 
 resource "yandex_compute_instance" "bastion_host" {
@@ -85,7 +131,7 @@ resource "yandex_compute_instance" "bastion_host" {
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.public_subnet.id
+    subnet_id = yandex_vpc_subnet.subnets["public-subnet"].id
     nat       = true  # Нужен для подключения к интернету
   }
 
@@ -119,7 +165,7 @@ resource "yandex_compute_instance" "web_server_1" {
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.subnet_a.id
+    subnet_id = yandex_vpc_subnet.subnets["private-subnet-a"].id
     nat       = false
   }
 
@@ -153,7 +199,7 @@ resource "yandex_compute_instance" "web_server_2" {
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.subnet_b.id
+    subnet_id = yandex_vpc_subnet.subnets["private-subnet-b"].id
     nat       = false
   }
 
@@ -167,12 +213,12 @@ resource "yandex_alb_target_group" "web-target-groups" {
   name = "web-target-groups"
 
   target {
-    subnet_id  = yandex_vpc_subnet.subnet_a.id
+    subnet_id  = yandex_vpc_subnet.subnets["private-subnet-a"].id
     ip_address = yandex_compute_instance.web_server_1.network_interface.0.ip_address
   }
 
   target {
-    subnet_id  = yandex_vpc_subnet.subnet_b.id
+    subnet_id  = yandex_vpc_subnet.subnets["private-subnet-b"].id
     ip_address = yandex_compute_instance.web_server_2.network_interface.0.ip_address
   }
 }
@@ -267,11 +313,11 @@ resource "yandex_alb_load_balancer" "web-balancer" {
   allocation_policy {
     location {
       zone_id   = "ru-central1-a"
-      subnet_id = yandex_vpc_subnet.subnet_a.id
+      subnet_id = yandex_vpc_subnet.subnets["private-subnet-a"].id
     }
     location {
       zone_id   = "ru-central1-b"
-      subnet_id = yandex_vpc_subnet.subnet_b.id
+      subnet_id = yandex_vpc_subnet.subnets["private-subnet-b"].id
     }
   }
 
@@ -316,4 +362,9 @@ output "backend_group_id" {
 output "load_balancer_id" {
   description = "ID балансировщика"
   value = yandex_alb_load_balancer.web-balancer.id
+}
+
+output "zabbix_server_ip" {
+  description = "IP адрес Zabbix Server"
+  value       = yandex_compute_instance.zabbix_server.network_interface.0.ip_address
 }
