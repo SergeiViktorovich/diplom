@@ -73,134 +73,82 @@ resource "yandex_vpc_route_table" "nat_route_table" {
   }
 }
 
-# Добавим виртуальную машину для Zabbix Server
-resource "yandex_compute_instance" "zabbix_server" {
-  name     = "zabbix-server"
-  hostname = "zabbix-server"
-  zone     = "ru-central1-a"
+# Объявляем переменную для виртуальныйх машин
+variable "instances" {
+  description = "Параметры виртуальных машин"
+  type = map(object({
+    name       = string
+    zone       = string
+    subnet_key = string
+    cores      = number
+    memory     = number
+    nat        = bool
+  }))
+  default = {
+    "zabbix-server" = {
+      name       = "zabbix-server"
+      zone       = "ru-central1-a"
+      subnet_key = "public-subnet"
+      cores      = 2
+      memory     = 2
+      nat        = true
+    }
+    "bastion-host" = {
+      name       = "bastion-host"
+      zone       = "ru-central1-a"
+      subnet_key = "public-subnet"
+      cores      = 2
+      memory     = 2
+      nat        = true
+    }
+    "web-server-1" = {
+      name       = "web-server-1"
+      zone       = "ru-central1-a"
+      subnet_key = "private-subnet-a"
+      cores      = 2
+      memory     = 2
+      nat        = false
+    }
+    "web-server-2" = {
+      name       = "web-server-2"
+      zone       = "ru-central1-b"
+      subnet_key = "private-subnet-b"
+      cores      = 2
+      memory     = 2
+      nat        = false
+    }
+  }
+}
+
+# Создаем ВМ с использованием for_each
+resource "yandex_compute_instance" "instances" {
+  for_each = var.instances
+
+  name     = each.value.name
+  hostname = each.value.name
+  zone     = each.value.zone
 
   resources {
-    cores         = 2
+    cores         = each.value.cores
     core_fraction = 20
-    memory        = 2
+    memory        = each.value.memory
   }
 
   boot_disk {
     initialize_params {
-      image_id = "fd8p4jt9v2pfq4ol9jqh"  # Ubuntu 22.04
+      image_id = "fd8p4jt9v2pfq4ol9jqh" # Ubuntu 22.04
       size     = 10
       type     = "network-hdd"
     }
   }
 
   scheduling_policy {
-    preemptible = true  # Прерываемая ВМ
+    preemptible = true
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.subnets["public-subnet"].id
-    nat       = true  # Нужен для подключения к интернету
-  }
-
-  metadata = {
-    ssh-keys = "user:${file(var.ssh_public_key_path)}"
-  }
-}
-
-resource "yandex_compute_instance" "bastion_host" {
-  name     = "bastion-host"
-  hostname = "bastion-host"
-  zone     = "ru-central1-a"
-
-  resources {
-    cores         = 2
-    core_fraction = 20
-    memory        = 2
-  }
-
-  boot_disk {
-    initialize_params {
-      image_id = "fd8p4jt9v2pfq4ol9jqh"  # Ubuntu 22.04
-      size     = 10
-      type     = "network-hdd"
-    }
-  }
-
-  scheduling_policy {
-    preemptible = true  # Прерываемая ВМ
-  }
-
-  network_interface {
-    subnet_id = yandex_vpc_subnet.subnets["public-subnet"].id
-    nat       = true  # Нужен для подключения к интернету
-  }
-
-  metadata = {
-    ssh-keys = "user:${file(var.ssh_public_key_path)}"
-  }
-}
-
-# Виртуальная машина в зоне ru-central1-a
-resource "yandex_compute_instance" "web_server_1" {
-  name     = "web-server-1"
-  hostname = "web-server-1"
-  zone     = "ru-central1-a"
-
-  resources {
-    cores         = 2               # 2 ядра
-    core_fraction = 20              # Прерываемая ВМ с 20% CPU
-    memory        = 2               # 2 Гб памяти
-  }
-
-  boot_disk {
-    initialize_params {
-      image_id = "fd8p4jt9v2pfq4ol9jqh"  # Ubuntu 22.04
-      size     = 10  # Диск 10 Гб (HDD)
-      type     = "network-hdd"
-    }
-  }
-
-  scheduling_policy {
-    preemptible = true  # Прерываемая ВМ
-  }
-
-  network_interface {
-    subnet_id = yandex_vpc_subnet.subnets["private-subnet-a"].id
-    nat       = false
-  }
-
-  metadata = {
-    ssh-keys = "user:${file(var.ssh_public_key_path)}"
-  }
-}
-
-# Виртуальная машина в зоне ru-central1-b
-resource "yandex_compute_instance" "web_server_2" {
-  name     = "web-server-2"
-  hostname = "web-server-2"
-  zone     = "ru-central1-b"
-
-  resources {
-    cores         = 2               # 2 ядра
-    core_fraction = 20              # Прерываемая ВМ с 20% CPU
-    memory        = 2               # 2 Гб памяти
-  }
-
-  boot_disk {
-    initialize_params {
-      image_id = "fd8p4jt9v2pfq4ol9jqh"  # Ubuntu 22.04
-      size     = 10  # Диск 10 Гб (HDD)
-      type     = "network-hdd"
-    }
-  }
-
-  scheduling_policy {
-    preemptible = true  # Прерываемая ВМ
-  }
-
-  network_interface {
-    subnet_id = yandex_vpc_subnet.subnets["private-subnet-b"].id
-    nat       = false
+    subnet_id = yandex_vpc_subnet.subnets[each.value.subnet_key].id
+    nat       = each.value.nat
   }
 
   metadata = {
@@ -214,12 +162,12 @@ resource "yandex_alb_target_group" "web-target-groups" {
 
   target {
     subnet_id  = yandex_vpc_subnet.subnets["private-subnet-a"].id
-    ip_address = yandex_compute_instance.web_server_1.network_interface.0.ip_address
+    ip_address = yandex_compute_instance.instances["web-server-1"].network_interface.0.ip_address
   }
 
   target {
     subnet_id  = yandex_vpc_subnet.subnets["private-subnet-b"].id
-    ip_address = yandex_compute_instance.web_server_2.network_interface.0.ip_address
+    ip_address = yandex_compute_instance.instances["web-server-2"].network_interface.0.ip_address
   }
 }
 
@@ -249,7 +197,7 @@ resource "yandex_alb_backend_group" "web-backend-group" {
       unhealthy_threshold  = 15
       http_healthcheck {
         path               = "/"              # Путь для проверки состояния
-        host               = "web-server-1"   # Адрес хоста для web-server-1
+        host               = yandex_compute_instance.instances["web-server-1"].network_interface.0.ip_address   # Адрес хоста для web-server-1
       }
     }
   }
@@ -270,7 +218,7 @@ resource "yandex_alb_backend_group" "web-backend-group" {
       unhealthy_threshold  = 15
       http_healthcheck {
         path               = "/"              # Путь для проверки состояния
-        host               = "web-server-2"   # Адрес хоста для web-server-2
+        host               = yandex_compute_instance.instances["web-server-2"].network_interface.0.ip_address   # Адрес хоста для web-server-2
       }
     }
   }
@@ -366,5 +314,5 @@ output "load_balancer_id" {
 
 output "zabbix_server_ip" {
   description = "IP адрес Zabbix Server"
-  value       = yandex_compute_instance.zabbix_server.network_interface.0.ip_address
+  value       = yandex_compute_instance.instances["zabbix-server"].network_interface.0.ip_address
 }
