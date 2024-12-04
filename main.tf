@@ -13,12 +13,12 @@ provider "yandex" {
   folder_id = var.folder_id       # Идентификатор каталога
 }
 
-# Создаем сеть
+# Сеть
 resource "yandex_vpc_network" "network" {
   name = "web-network"
 }
 
-# Переменные для подсетей
+# Подсети
 variable "subnets" {
   description = "Параметры подсетей"
   type = map(object({
@@ -162,7 +162,7 @@ resource "yandex_compute_instance" "instances" {
   }
 }
 
-# Создание целевой группы
+# Целевая группа
 resource "yandex_alb_target_group" "web-target-groups" {
   name = "web-target-groups"
 
@@ -175,7 +175,7 @@ resource "yandex_alb_target_group" "web-target-groups" {
   }
 }
 
-# Создаем группу бэкендов
+# Группа бэкендов
 resource "yandex_alb_backend_group" "web-backend-group" {
   name = "web-backend-group"  
 
@@ -196,32 +196,26 @@ resource "yandex_alb_backend_group" "web-backend-group" {
       unhealthy_threshold  = 15
       http_healthcheck {
         path               = "/"
-        host               = 
       }
     }
   }
 }
 
-# Создаем HTTP роутер
+# HTTP роутер и виртуальный хост
 resource "yandex_alb_http_router" "tf-router" {
   name = "my-http-router"  # Имя HTTP роутера
-  labels = {
-    tf-label    = "tf-label-value"
-    empty-label = ""
-  }
 }
 
-# Создаем виртуальный хост
 resource "yandex_alb_virtual_host" "my-virtual-host" {
-  for_each       = yandex_alb_backend_group.web-backend-group  # Для каждого бэкенда создаем виртуальный хост
-  name           = "my-virtual-host-${each.key}"  # Имя виртуального хоста
+
+  name           = "my-virtual-host"  # Имя виртуального хоста
   http_router_id = yandex_alb_http_router.tf-router.id
 
   route {
     name                  = "root-route"  # Имя маршрута
     http_route {
       http_route_action {
-        backend_group_id  = each.value.id  # Идентификатор группы бэкендов
+        backend_group_id  = yandex_alb_backend_group.web-backend-group.id  # Идентификатор группы бэкендов
         timeout           = "60s"  # Таймаут
       }
     }
@@ -283,7 +277,7 @@ output "target_group_id" {
 
 output "backend_group_id" {
   description = "ID бекенд группы веб-серверов"
-  value = [for group in yandex_alb_backend_group.web-backend-group : group.id]
+  value = yandex_alb_backend_group.web-backend-group.id
 }
 
 output "load_balancer_id" {
