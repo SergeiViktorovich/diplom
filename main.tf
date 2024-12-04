@@ -79,6 +79,36 @@ resource "yandex_vpc_subnet" "subnets" {
   route_table_id = each.value.is_private ? yandex_vpc_route_table.nat_route_table[each.key].id : null
 }
 
+# Группу безопасности
+resource "yandex_vpc_security_group" "web-security-group" {
+  name        = "web-security-group"
+  description = "Группа безопасности"
+
+  network_id  = yandex_vpc_network.network.id
+
+  ingress {
+    description      = "Разрешить HTTP"
+    protocol         = "tcp"
+    port             = 80
+    v4_cidr_blocks   = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description      = "Разрешить SSH"
+    protocol         = "tcp"
+    port             = 22
+    v4_cidr_blocks   = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description      = "Разрешить весь исходящий трафик"
+    protocol         = "tcp"
+    from_port        = 1
+    to_port          = 65535
+    v4_cidr_blocks   = ["0.0.0.0/0"]
+  }
+}
+
 # Переменные для виртуальных машин
 variable "instances" {
   description = "Параметры виртуальных машин"
@@ -155,6 +185,7 @@ resource "yandex_compute_instance" "instances" {
   network_interface {
     subnet_id = yandex_vpc_subnet.subnets[each.value.subnet_key].id
     nat       = each.value.nat
+    security_group_ids = [yandex_vpc_security_group.web-security-group.id]  # Привязка группы безопасности
   }
 
   metadata = {
