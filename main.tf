@@ -8,9 +8,9 @@ terraform {
 }
 
 provider "yandex" {
-  token     = var.yc_token        # Токен доступа
-  cloud_id  = var.cloud_id        # Идентификатор облака
-  folder_id = var.folder_id       # Идентификатор каталога
+  token     = var.yc_token
+  cloud_id  = var.cloud_id
+  folder_id = var.folder_id
 }
 
 # Сеть
