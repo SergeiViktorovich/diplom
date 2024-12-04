@@ -1,0 +1,103 @@
+---
+- name: Установка Zabbix Server с Docker
+  hosts: zabbix_server
+  become: true
+  vars:
+    zabbix_version: "ubuntu-6.0-latest"
+    mysql_root_password: "strong_root_password"
+    mysql_zabbix_user: "zabbix"
+    mysql_zabbix_password: "zabbix_password"
+    mysql_zabbix_db: "zabbix"
+
+  tasks:
+    - name: Обновить apt cache
+      apt:
+        update_cache: yes
+
+    - name: Установить pip и Docker Python library
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Установка docker для Python
+      pip:
+        name: docker
+        state: present
+
+    - name: Установить Docker
+      ansible.builtin.package:
+        name: docker.io
+        state: present
+
+    - name: Запустить и включить Docker
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Создать сеть для Zabbix
+      community.docker.docker_network:
+        name: zabbix-net
+        driver: bridge
+
+    - name: Создать Docker тома
+      community.docker.docker_volume:
+        name: "{{ item }}"
+      loop:
+        - mysql_data
+        - zbx_alertscripts
+        - zbx_external
+
+    - name: Запустить контейнер MySQL
+      community.docker.docker_container:
+        name: zabbix-mysql
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+          MYSQL_USER: "{{ mysql_zabbix_user }}"
+          MYSQL_PASSWORD: "{{ mysql_zabbix_password }}"
+          MYSQL_DATABASE: "{{ mysql_zabbix_db }}"
+        networks:
+          - name: zabbix-net
+        state: started
+        restart_policy: always
+        volumes:
+          - "mysql_data:/var/lib/mysql"
+
+    - name: Ожидание инициализации MySQL контейнера
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Запустить контейнер Zabbix Server
+      community.docker.docker_container:
+        name: zabbix-server
+        image: zabbix/zabbix-server-mysql:{{ zabbix_version }}
+        env:
+          DB_SERVER_HOST: zabbix-mysql
+          MYSQL_DATABASE: "{{ mysql_zabbix_db }}"
+          MYSQL_USER: "{{ mysql_zabbix_user }}"
+          MYSQL_PASSWORD: "{{ mysql_zabbix_password }}"
+        networks:
+          - name: zabbix-net
+        state: started
+        restart_policy: always
+        volumes:
+          - "zbx_alertscripts:/usr/lib/zabbix/alertscripts"
+          - "zbx_external:/usr/lib/zabbix/externalscripts"
+
+    - name: Запустить контейнер Zabbix Web UI
+      community.docker.docker_container:
+        name: zabbix-web
+        image: zabbix/zabbix-web-nginx-mysql:{{ zabbix_version }}
+        env:
+          DB_SERVER_HOST: zabbix-mysql
+          MYSQL_DATABASE: "{{ mysql_zabbix_db }}"
+          MYSQL_USER: "{{ mysql_zabbix_user }}"
+          MYSQL_PASSWORD: "{{ mysql_zabbix_password }}"
+          PHP_TZ: "Asia/Novosibirsk"
+        networks:
+          - name: zabbix-net
+        ports:
+          - "8080:8080"
+        state: started
+        restart_policy: always
